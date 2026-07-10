@@ -26,59 +26,139 @@ beyblade-tournament/
 └── package.json
 ```
 
-## 快速開始
+## 快速開始（Quick Start）
 
-### 1. 安裝依賴
+### 前置需求
+
+- **Node.js** ≥ 22  
+- **pnpm** ≥ 9（`npm install -g pnpm`）  
+- **PostgreSQL** 本機或雲端（見下方）
+
+### 一鍵指令摘要
 
 ```bash
+# 1. 取得專案
+git clone https://github.com/Takjai18/beyblade-tournament.git
+cd beyblade-tournament
+
+# 2. 安裝依賴
 pnpm install
-```
 
-### 2. 環境變數
-
-```bash
+# 3. 環境變數
 cp .env.example .env
-# 預設連本機 Docker Postgres；或改為 Neon / Render 連線字串
+# 編輯 .env，設定 DATABASE_URL（見下方「資料庫」）
+
+# 4. 產生 Prisma Client + 同步資料表
+pnpm db:generate
+pnpm db:push
+
+# 5. 開兩個 terminal 啟動
+pnpm dev:server   # API + Socket → http://localhost:3000
+pnpm dev:web      # 前端       → http://localhost:5173
 ```
 
+瀏覽器開啟：**http://localhost:5173**
+
+| 服務 | 網址 |
+|------|------|
+| 前端 Web | http://localhost:5173 |
+| API | http://localhost:3000 |
+| Health check | http://localhost:3000/health |
+
+---
+
+### 資料庫設定
+
+#### 方案 A：Homebrew PostgreSQL（macOS 推薦）
+
 ```bash
-# apps/web/.env — 開發時可留空，走 Vite proxy
+# 安裝並啟動
+brew install postgresql@16
+brew services start postgresql@16
+
+# 把 CLI 加入 PATH（可寫進 ~/.zshrc）
+export PATH="/opt/homebrew/opt/postgresql@16/bin:$PATH"
+
+# 建立資料庫
+createdb beyblade_tournament
+```
+
+`.env` 範例（本機 trust auth，使用者為你的 macOS 帳號）：
+
+```env
+DATABASE_URL="postgresql://YOUR_MAC_USERNAME@localhost:5432/beyblade_tournament?schema=public"
+JWT_SECRET="dev-secret-change-me"
+PORT=3000
+CORS_ORIGIN="http://localhost:5173"
+HOST=0.0.0.0
+```
+
+#### 方案 B：Docker Compose
+
+```bash
+docker compose up -d
+```
+
+`.env`：
+
+```env
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/beyblade_tournament?schema=public"
+```
+
+#### 方案 C：Neon / Render 等雲端 Postgres
+
+把供應商提供的連線字串貼進 `.env` 的 `DATABASE_URL` 即可。
+
+---
+
+### 前端環境變數（可選）
+
+```bash
+cp apps/web/.env.example apps/web/.env
+```
+
+開發時可**留空** `VITE_API_URL` / `VITE_SOCKET_URL`，會走 Vite proxy 轉到 `:3000`。
+
+```env
+# apps/web/.env
 VITE_API_URL=
 VITE_SOCKET_URL=
 ```
 
-### 3. 資料庫
+---
+
+### 日常開發指令
 
 ```bash
-# 需要 Docker
-docker compose up -d
+cd beyblade-tournament
 
-pnpm db:generate
-pnpm db:push
-```
-
-沒有 Docker 時可改用 [Neon.tech](https://neon.tech) free Postgres，把 `DATABASE_URL` 貼進 `.env`。
-
-### 4. 開發
-
-```bash
-# Terminal 1 — API + Socket
+# 啟動 API（Terminal 1）
 pnpm dev:server
 
-# Terminal 2 — Web
+# 啟動 Web（Terminal 2）
 pnpm dev:web
+
+# 資料庫
+pnpm db:generate   # 產生 Prisma Client
+pnpm db:push       # 同步 schema 到 DB
+pnpm db:studio     # Prisma Studio GUI
+
+# 建置
+pnpm build
 ```
 
-- Web: http://localhost:5173  
-- API: http://localhost:3000  
-- Health: http://localhost:3000/health  
+若出現 `ERR_CONNECTION_REFUSED`，代表 dev server 沒在跑，重新執行 `pnpm dev:server` 與 `pnpm dev:web`。
 
-### 5. 驗證流程
+---
 
-1. 首頁 →「快速建立賽事」→ 填名稱 + Host PIN  
-2. 主辦登入（同一 PIN）→ 新增 / 編輯 / 刪除玩家  
-3. 複製分享連結 → `/watch/:shareCode` 觀眾模式  
-4. Socket room：`tournament:{id}` 同步玩家變更
+### 驗證流程
+
+1. 開啟 http://localhost:5173  
+2. 「快速建立賽事」→ 填名稱 + Host PIN（4–6 位）  
+3. 主辦登入（同一 PIN）→ 新增至少 2 位玩家  
+4. 「產生對戰表」→ 點對戰進入全螢幕計分板  
+5. Spin / Over / Burst / Xtreme 計分；Undo 撤銷；達 `pointsToWin` 自動完結  
+6. 分享 `/watch/:shareCode` 觀眾模式  
 
 ## Phase 1 進度
 
