@@ -199,17 +199,46 @@ export const api = {
     }),
 
   getStandings: (tournamentId: string) =>
-    request<
-      {
+    request<{
+      standings: {
+        rank: number;
         playerId: string;
         name: string;
         emoji: string | null;
         seed: number | null;
         wins: number;
         losses: number;
+        matchPoints: number;
+        scorePoints: number;
+        scoreDiff: number;
+        buchholz: number;
+        qualify: boolean;
+        points?: number;
+      }[];
+      rows?: {
+        rank: number;
+        playerId: string;
+        name: string;
+        emoji: string | null;
+        seed: number | null;
+        wins: number;
+        losses: number;
+        matchPoints: number;
+        scorePoints: number;
+        scoreDiff: number;
+        buchholz: number;
+        qualify: boolean;
         points: number;
-      }[]
-    >(`/api/tournaments/${tournamentId}/standings`),
+      }[];
+      meta: {
+        format: string;
+        currentRound: number;
+        maxRounds: number | null;
+        swissComplete: boolean;
+        openMatches: number;
+        advanceCount: number;
+      };
+    }>(`/api/tournaments/${tournamentId}/standings`),
 
   getByShareCode: (shareCode: string) =>
     request<Tournament>(`/api/watch/${shareCode}`),

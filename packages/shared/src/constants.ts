@@ -31,6 +31,7 @@ export const DEFAULT_TOURNAMENT_SETTINGS = {
   allowReOrder: true,
   maxPlayers: 64,
   groupCount: 4,
+  advanceCount: 0,
 };
 
 export const SOCKET_EVENTS = {

@@ -15,6 +15,7 @@ import { api, type Match, type Player } from "../lib/api";
 import { FormatBadge, StatusBadge } from "../components/StatusBadge";
 import { PlayerForm } from "../components/PlayerForm";
 import { QRShare } from "../components/QRShare";
+import { StandingsTable } from "../components/StandingsTable";
 import {
   getSocket,
   joinTournamentRoom,
@@ -46,6 +47,12 @@ export function TournamentPage() {
     queryKey: ["tournament", slug],
     queryFn: () => api.getTournament(slug),
     enabled: Boolean(slug),
+  });
+
+  const { data: standingsData } = useQuery({
+    queryKey: ["standings", tournament?.id],
+    queryFn: () => api.getStandings(tournament!.id),
+    enabled: Boolean(tournament?.id),
   });
 
   const isHost =
@@ -80,17 +87,21 @@ export function TournamentPage() {
     const invalidate = () => {
       qc.invalidateQueries({ queryKey: ["tournament", slug] });
     };
+    const invalidateStandings = () => {
+      invalidate();
+      qc.invalidateQueries({ queryKey: ["standings", tournament.id] });
+    };
     s.on(SOCKET_EVENTS.PLAYER_UPDATED, invalidate);
-    s.on(SOCKET_EVENTS.TOURNAMENT_UPDATED, invalidate);
-    s.on(SOCKET_EVENTS.MATCH_UPDATED, invalidate);
-    s.on(SOCKET_EVENTS.STANDINGS_UPDATED, invalidate);
+    s.on(SOCKET_EVENTS.TOURNAMENT_UPDATED, invalidateStandings);
+    s.on(SOCKET_EVENTS.MATCH_UPDATED, invalidateStandings);
+    s.on(SOCKET_EVENTS.STANDINGS_UPDATED, invalidateStandings);
 
     return () => {
       cancelled = true;
       s.off(SOCKET_EVENTS.PLAYER_UPDATED, invalidate);
-      s.off(SOCKET_EVENTS.TOURNAMENT_UPDATED, invalidate);
-      s.off(SOCKET_EVENTS.MATCH_UPDATED, invalidate);
-      s.off(SOCKET_EVENTS.STANDINGS_UPDATED, invalidate);
+      s.off(SOCKET_EVENTS.TOURNAMENT_UPDATED, invalidateStandings);
+      s.off(SOCKET_EVENTS.MATCH_UPDATED, invalidateStandings);
+      s.off(SOCKET_EVENTS.STANDINGS_UPDATED, invalidateStandings);
       leaveTournamentRoom();
     };
   }, [tournament?.id, isHost, session?.role, session?.pin, slug, qc]);
@@ -167,6 +178,7 @@ export function TournamentPage() {
     mutationFn: () => api.swissNextRound(tournament!.id),
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ["tournament", slug] });
+      qc.invalidateQueries({ queryKey: ["standings", tournament!.id] });
       setToast(`瑞士制第 ${res.round} 輪已產生（${res.newCount} 場）`);
     },
     onError: (err) => {
@@ -218,6 +230,14 @@ export function TournamentPage() {
   const playableMatches = matches.filter(
     (m) => m.player1Id && m.player2Id && m.status !== "CANCELLED"
   );
+  const standings = standingsData?.standings ?? standingsData?.rows ?? [];
+  const standingsMeta = standingsData?.meta;
+  const swissComplete = Boolean(standingsMeta?.swissComplete);
+  const canSwissNext =
+    tournament.format === "SWISS" &&
+    matches.length > 0 &&
+    !swissComplete &&
+    (standingsMeta?.openMatches ?? 0) === 0;
 
   return (
     <div className="space-y-5">
@@ -410,6 +430,22 @@ export function TournamentPage() {
         )}
       </section>
 
+      {/* Rankings — Swiss 完結時特別突出 */}
+      {standings.length > 0 && (
+        <StandingsTable
+          standings={standings}
+          meta={standingsMeta}
+          title={
+            swissComplete
+              ? "最終排名 · 總分 · 晉級"
+              : tournament.format === "SWISS"
+                ? "瑞士制即時排名"
+                : t("standings")
+          }
+          showQualify
+        />
+      )}
+
       {/* Matches */}
       <section className="space-y-3">
         <div className="flex items-center justify-between gap-2">
@@ -426,10 +462,21 @@ export function TournamentPage() {
                 <button
                   type="button"
                   className="btn-secondary !py-1.5 !text-xs"
-                  disabled={swissNext.isPending}
+                  disabled={swissNext.isPending || !canSwissNext}
                   onClick={() => swissNext.mutate()}
+                  title={
+                    swissComplete
+                      ? "瑞士制已完結"
+                      : (standingsMeta?.openMatches ?? 0) > 0
+                        ? "請先完成本輪所有對戰"
+                        : "產生下一輪配對"
+                  }
                 >
-                  {swissNext.isPending ? "…" : "下一輪瑞士制"}
+                  {swissNext.isPending
+                    ? "…"
+                    : swissComplete
+                      ? "瑞士制已完結"
+                      : "下一輪瑞士制"}
                 </button>
               )}
               <button

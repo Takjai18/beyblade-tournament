@@ -20,6 +20,7 @@ export function CreateTournamentPage() {
   const [is3on3, setIs3on3] = useState(false);
   const [swissRounds, setSwissRounds] = useState(5);
   const [groupCount, setGroupCount] = useState(4);
+  const [advanceCount, setAdvanceCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   const mutation = useMutation({
@@ -59,6 +60,7 @@ export function CreateTournamentPage() {
         is3on3,
         swissRounds,
         groupCount,
+        advanceCount,
       },
     });
   }
@@ -166,16 +168,33 @@ export function CreateTournamentPage() {
         </div>
 
         {format === "SWISS" && (
-          <div>
-            <label className="label">瑞士制輪數</label>
-            <input
-              className="input"
-              type="number"
-              min={1}
-              max={20}
-              value={swissRounds}
-              onChange={(e) => setSwissRounds(Number(e.target.value) || 5)}
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label">瑞士制輪數</label>
+              <input
+                className="input"
+                type="number"
+                min={1}
+                max={20}
+                value={swissRounds}
+                onChange={(e) => setSwissRounds(Number(e.target.value) || 5)}
+              />
+            </div>
+            <div>
+              <label className="label">晉級人數</label>
+              <input
+                className="input"
+                type="number"
+                min={0}
+                max={128}
+                value={advanceCount}
+                onChange={(e) => setAdvanceCount(Number(e.target.value) || 0)}
+                placeholder="0 = 前半"
+              />
+              <p className="mt-1 text-[11px] text-slate-500">
+                0 = 自動前半名額
+              </p>
+            </div>
           </div>
         )}
 

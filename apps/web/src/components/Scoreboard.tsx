@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { FINISH_POINTS } from "@beyblade/shared";
 import type { FinishRecord, Match } from "../lib/api";
 import { sfx } from "../lib/sfx";
-import { Undo2, Flag, ChevronDown, ChevronUp } from "lucide-react";
+import { Undo2, Flag, ChevronDown, ChevronUp, LayoutDashboard } from "lucide-react";
 
 type FinishType = "SPIN" | "OVER" | "BURST" | "XTREME";
 
@@ -54,6 +54,9 @@ interface Props {
   onComplete: () => Promise<void>;
   onStart: () => Promise<void>;
   onSetBey?: (side: "p1" | "p2", index: number) => Promise<void>;
+  /** Large back-to-console control (shown above Undo) */
+  onBack?: () => void;
+  backLabel?: string;
   actions?: { id: string; action: string; createdAt: string; performedBy: string | null }[];
 }
 
@@ -98,6 +101,8 @@ export function Scoreboard({
   onComplete,
   onStart,
   onSetBey,
+  onBack,
+  backLabel = "回到主控台",
   actions = [],
 }: Props) {
   const [side, setSide] = useState<"p1" | "p2">("p1");
@@ -305,44 +310,58 @@ export function Scoreboard({
       </div>
 
       {/* Controls */}
-      <div className="flex flex-none flex-wrap gap-2 border-t border-slate-800 bg-slate-950/95 px-3 py-3 sm:px-6">
-        {canStart && (
+      <div className="flex flex-none flex-col gap-2 border-t border-slate-800 bg-slate-950/95 px-3 py-3 sm:px-6">
+        {/* 大顆：回到主控台（在 Undo 上方） */}
+        {onBack && (
           <button
             type="button"
-            className="btn-primary min-h-12 flex-1"
-            disabled={busy}
-            onClick={() => onStart()}
+            className="btn-primary min-h-14 w-full text-base font-bold shadow-lg shadow-cyan-400/10"
+            onClick={onBack}
           >
-            開始對戰
+            <LayoutDashboard className="h-5 w-5" />
+            {backLabel}
           </button>
         )}
-        <button
-          type="button"
-          className="btn-secondary min-h-12 flex-1"
-          disabled={!canUndo || busy}
-          onClick={handleUndo}
-        >
-          <Undo2 className="h-4 w-4" />
-          Undo ({finishes.length})
-        </button>
-        {!isDone && canScore && (
+
+        <div className="flex flex-wrap gap-2">
+          {canStart && (
+            <button
+              type="button"
+              className="btn-secondary min-h-12 flex-1"
+              disabled={busy}
+              onClick={() => onStart()}
+            >
+              開始對戰
+            </button>
+          )}
           <button
             type="button"
-            className="btn-danger min-h-12 flex-1"
-            disabled={busy || match.score1 === match.score2}
-            onClick={async () => {
-              try {
-                sfx.complete();
-                await onComplete();
-              } catch (e) {
-                setError(e instanceof Error ? e.message : "結束失敗");
-              }
-            }}
+            className="btn-secondary min-h-12 flex-1"
+            disabled={!canUndo || busy}
+            onClick={handleUndo}
           >
-            <Flag className="h-4 w-4" />
-            手動結束
+            <Undo2 className="h-4 w-4" />
+            Undo ({finishes.length})
           </button>
-        )}
+          {!isDone && canScore && (
+            <button
+              type="button"
+              className="btn-danger min-h-12 flex-1"
+              disabled={busy || match.score1 === match.score2}
+              onClick={async () => {
+                try {
+                  sfx.complete();
+                  await onComplete();
+                } catch (e) {
+                  setError(e instanceof Error ? e.message : "結束失敗");
+                }
+              }}
+            >
+              <Flag className="h-4 w-4" />
+              手動結束
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Finish log */}

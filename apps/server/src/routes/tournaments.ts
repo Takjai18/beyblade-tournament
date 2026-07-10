@@ -257,34 +257,25 @@ export async function tournamentRoutes(app: FastifyInstance) {
     }
   );
 
-  // Standings (basic)
+  // Standings (match-based: W/L, score, Buchholz, 晉級)
   app.get<{ Params: { id: string } }>(
     "/api/tournaments/:id/standings",
     async (req, reply) => {
-      const players = await prisma.player.findMany({
-        where: { tournamentId: req.params.id, isDropped: false },
-        orderBy: { createdAt: "asc" },
-      });
-
-      const standings = players
-        .map((p) => {
-          const stats =
-            typeof p.stats === "object" && p.stats !== null
-              ? (p.stats as Record<string, number>)
-              : {};
-          return {
-            playerId: p.id,
-            name: p.name,
-            emoji: p.emoji,
-            seed: p.seed,
-            wins: Number(stats.wins ?? 0),
-            losses: Number(stats.losses ?? 0),
-            points: Number(stats.points ?? 0),
-          };
-        })
-        .sort((a, b) => b.points - a.points || b.wins - a.wins);
-
-      return reply.send(standings);
+      try {
+        const { computeStandings } = await import("../lib/standings.js");
+        const result = await computeStandings(req.params.id);
+        // Keep array shape for older clients + meta
+        return reply.send({
+          ...result,
+          // flat alias: points = matchPoints for WatchPage compat
+          rows: result.standings.map((s) => ({
+            ...s,
+            points: s.matchPoints,
+          })),
+        });
+      } catch {
+        return reply.status(404).send({ error: "找不到賽事" });
+      }
     }
   );
 }

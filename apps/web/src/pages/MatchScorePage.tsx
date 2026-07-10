@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft } from "lucide-react";
 import { api } from "../lib/api";
 import { Scoreboard } from "../components/Scoreboard";
 import {
@@ -15,6 +14,7 @@ import { sfx } from "../lib/sfx";
 
 export function MatchScorePage() {
   const { slug = "", matchId = "" } = useParams();
+  const navigate = useNavigate();
   const qc = useQueryClient();
   const session = useTournamentStore((s) => s.session);
   const [toast, setToast] = useState<string | null>(null);
@@ -40,7 +40,8 @@ export function MatchScorePage() {
   const pointsToWin =
     Number(match?.tournament?.settings?.pointsToWin) === 7 ? 7 : 4;
 
-  // Socket sync
+  const consolePath = `/t/${match?.tournament?.slug ?? slug}`;
+
   useEffect(() => {
     if (!match?.tournamentId) return;
     let cancelled = false;
@@ -64,14 +65,9 @@ export function MatchScorePage() {
     })();
 
     const s = getSocket();
-    const onMatch = (payload: { match?: { id: string } }) => {
-      if (payload?.match?.id === matchId) {
-        qc.invalidateQueries({ queryKey: ["match", matchId] });
-        qc.invalidateQueries({ queryKey: ["match-actions", matchId] });
-      } else {
-        // still refresh in case next match advance
-        qc.invalidateQueries({ queryKey: ["match", matchId] });
-      }
+    const onMatch = () => {
+      qc.invalidateQueries({ queryKey: ["match", matchId] });
+      qc.invalidateQueries({ queryKey: ["match-actions", matchId] });
     };
     s.on(SOCKET_EVENTS.MATCH_UPDATED, onMatch);
     s.on(SOCKET_EVENTS.ACTION_LOGGED, () => {
@@ -181,59 +177,55 @@ export function MatchScorePage() {
   }
 
   return (
-    <div className="relative min-h-dvh bg-slate-950">
-      {/* Minimal chrome — full screen scoreboard */}
-      <div className="absolute left-0 right-0 top-0 z-10 flex items-center justify-between px-2 pt-[max(0.5rem,env(safe-area-inset-top))]">
-        <Link
-          to={`/t/${match.tournament?.slug ?? slug}`}
-          className="btn-ghost !py-1.5 !text-xs text-slate-400"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          主控台
-        </Link>
-        <span className="truncate text-xs text-slate-600">
+    <div className="min-h-dvh bg-slate-950">
+      {/* 頂部只顯示賽事名 + 角色，返回改到底部大按鈕 */}
+      <div className="flex items-center justify-between gap-2 px-3 pt-[max(0.5rem,env(safe-area-inset-top))] pb-1">
+        <span className="truncate text-sm font-medium text-slate-300">
           {match.tournament?.name}
         </span>
-        {!canScore && (
-          <span className="badge bg-slate-800 text-slate-400">只讀</span>
-        )}
-        {canScore && (
-          <span className="badge bg-cyan-500/20 text-cyan-300">裁判</span>
+        {canScore ? (
+          <span className="badge shrink-0 bg-cyan-500/20 text-cyan-300">
+            裁判
+          </span>
+        ) : (
+          <span className="badge shrink-0 bg-slate-800 text-slate-400">
+            只讀
+          </span>
         )}
       </div>
 
-      <div className="pt-10">
-        <Scoreboard
-          match={match}
-          pointsToWin={pointsToWin}
-          canScore={canScore}
-          busy={busy}
-          is3on3={is3on3}
-          actions={actions}
-          onScore={async (type, playerId, beyIndex) => {
-            await scoreMut.mutateAsync({ type, playerId, beyIndex });
-          }}
-          onUndo={async () => {
-            await undoMut.mutateAsync();
-          }}
-          onComplete={async () => {
-            await completeMut.mutateAsync();
-          }}
-          onStart={async () => {
-            await startMut.mutateAsync();
-          }}
-          onSetBey={async (side, index) => {
-            await beyMut.mutateAsync(
-              side === "p1"
-                ? { currentBey1: index }
-                : { currentBey2: index }
-            );
-          }}
-        />
-      </div>
+      <Scoreboard
+        match={match}
+        pointsToWin={pointsToWin}
+        canScore={canScore}
+        busy={busy}
+        is3on3={is3on3}
+        actions={actions}
+        backLabel="回到主控台"
+        onBack={() => navigate(consolePath)}
+        onScore={async (type, playerId, beyIndex) => {
+          await scoreMut.mutateAsync({ type, playerId, beyIndex });
+        }}
+        onUndo={async () => {
+          await undoMut.mutateAsync();
+        }}
+        onComplete={async () => {
+          await completeMut.mutateAsync();
+        }}
+        onStart={async () => {
+          await startMut.mutateAsync();
+        }}
+        onSetBey={async (side, index) => {
+          await beyMut.mutateAsync(
+            side === "p1"
+              ? { currentBey1: index }
+              : { currentBey2: index }
+          );
+        }}
+      />
 
       {toast && (
-        <div className="pointer-events-none fixed bottom-8 left-1/2 z-50 -translate-x-1/2 rounded-full bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 shadow-lg">
+        <div className="pointer-events-none fixed bottom-28 left-1/2 z-50 -translate-x-1/2 rounded-full bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 shadow-lg">
           {toast}
         </div>
       )}

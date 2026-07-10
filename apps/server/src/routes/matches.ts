@@ -725,6 +725,25 @@ export async function matchRoutes(app: FastifyInstance) {
           },
           performedBy: refereeName ?? "HOST",
         });
+
+        // Swiss: all rounds done → mark FINISHED
+        if (match.tournament.format === "SWISS") {
+          try {
+            const { computeStandings } = await import("../lib/standings.js");
+            const { meta } = await computeStandings(match.tournamentId);
+            if (meta.swissComplete) {
+              await prisma.tournament.update({
+                where: { id: match.tournamentId },
+                data: {
+                  status: "FINISHED",
+                  finishedAt: new Date(),
+                },
+              });
+            }
+          } catch {
+            /* ignore */
+          }
+        }
       }
 
       emitToTournament(app.io, match.tournamentId, SOCKET_EVENTS.MATCH_UPDATED, {

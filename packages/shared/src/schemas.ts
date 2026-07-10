@@ -48,6 +48,8 @@ export const TournamentSettingsSchema = z.object({
   maxPlayers: z.number().int().min(2).max(256).default(64),
   /** GROUP_SWISS / group stage 組數 */
   groupCount: z.number().int().min(2).max(16).default(4),
+  /** 瑞士制 / 總排名晉級人數；0 = 前半（至少 1） */
+  advanceCount: z.number().int().min(0).max(128).default(0),
 });
 
 export const CreateTournamentSchema = z.object({

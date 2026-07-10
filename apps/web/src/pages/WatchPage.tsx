@@ -3,6 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, type Match } from "../lib/api";
 import { FormatBadge, StatusBadge } from "../components/StatusBadge";
+import { StandingsTable } from "../components/StandingsTable";
 import {
   getSocket,
   joinTournamentRoom,
@@ -23,7 +24,7 @@ export function WatchPage() {
     refetchInterval: 15_000,
   });
 
-  const { data: standings } = useQuery({
+  const { data: standingsData } = useQuery({
     queryKey: ["watch-standings", data?.id],
     queryFn: () => api.getStandings(data!.id),
     enabled: Boolean(data?.id),
@@ -39,7 +40,7 @@ export function WatchPage() {
         await joinTournamentRoom(data.id, "VIEWER");
       } catch {
         if (!cancelled) {
-          /* room join optional for watch */
+          /* optional */
         }
       }
     })();
@@ -86,6 +87,7 @@ export function WatchPage() {
   );
   const liveMatches = matches.filter((m) => m.status === "LIVE");
   const otherMatches = matches.filter((m) => m.status !== "LIVE");
+  const standings = standingsData?.standings ?? standingsData?.rows ?? [];
 
   return (
     <div className="space-y-5">
@@ -103,7 +105,6 @@ export function WatchPage() {
         )}
       </section>
 
-      {/* Live matches first */}
       {liveMatches.length > 0 && (
         <section>
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-orange-400">
@@ -117,52 +118,18 @@ export function WatchPage() {
         </section>
       )}
 
-      {/* Standings */}
-      {standings && standings.length > 0 && (
-        <section>
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">
-            {t("standings")}
-          </h2>
-          <div className="card overflow-x-auto !p-0">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-slate-800 text-xs text-slate-500">
-                <tr>
-                  <th className="px-3 py-2">#</th>
-                  <th className="px-3 py-2">{t("name")}</th>
-                  <th className="px-3 py-2 text-right">W</th>
-                  <th className="px-3 py-2 text-right">L</th>
-                  <th className="px-3 py-2 text-right">Pts</th>
-                </tr>
-              </thead>
-              <tbody>
-                {standings.map((row, i) => (
-                  <tr
-                    key={row.playerId}
-                    className="border-b border-slate-900 last:border-0"
-                  >
-                    <td className="px-3 py-2 text-slate-500">{i + 1}</td>
-                    <td className="px-3 py-2 font-medium">
-                      <span className="mr-1">{row.emoji}</span>
-                      {row.name}
-                    </td>
-                    <td className="px-3 py-2 text-right tabular-nums text-cyan-300">
-                      {row.wins}
-                    </td>
-                    <td className="px-3 py-2 text-right tabular-nums text-slate-400">
-                      {row.losses}
-                    </td>
-                    <td className="px-3 py-2 text-right tabular-nums font-semibold">
-                      {row.points}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
+      {standings.length > 0 && (
+        <StandingsTable
+          standings={standings}
+          meta={standingsData?.meta}
+          title={
+            standingsData?.meta?.swissComplete
+              ? "最終排名 · 總分 · 晉級"
+              : t("standings")
+          }
+        />
       )}
 
-      {/* All matches */}
       {otherMatches.length > 0 && (
         <section>
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">
