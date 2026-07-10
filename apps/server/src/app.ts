@@ -5,10 +5,12 @@ import { env } from "./lib/env.js";
 import { tournamentRoutes } from "./routes/tournaments.js";
 import { playerRoutes } from "./routes/players.js";
 import { matchRoutes } from "./routes/matches.js";
+import { aiRoutes } from "./routes/ai.js";
 
 export async function buildApp() {
   const app = Fastify({
     logger: env.NODE_ENV === "development",
+    bodyLimit: 15 * 1024 * 1024, // allow base64 images for AI identify
   });
 
   await app.register(cors, {
@@ -26,6 +28,8 @@ export async function buildApp() {
   await app.register(tournamentRoutes);
   await app.register(playerRoutes);
   await app.register(matchRoutes);
+  await app.register(aiRoutes);
 
   return app;
 }
+

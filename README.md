@@ -186,6 +186,37 @@ pnpm build
 - [x] 3on3 decks 編輯 + 零件不可重複驗證
 - [x] 計分板當前出戰陀螺切換（currentBey）
 
+## Phase 3 — AI 陀螺辨識
+
+使用 **Gemini Vision**（伺服器端 API key，不暴露到前端）。
+
+### 設定
+
+1. 到 [Google AI Studio](https://aistudio.google.com/apikey) 建立 API key  
+2. 寫入專案根目錄 `.env`：
+
+```env
+GEMINI_API_KEY=your_key_here
+# 可選
+# GEMINI_MODEL=gemini-2.0-flash
+```
+
+3. 重啟 `pnpm dev:server`  
+4. 檢查：`GET http://localhost:3000/api/ai/status` → `"configured": true`
+
+### 使用
+
+- 玩家表單 → Decks → **AI 辨識**（拍照或上傳）  
+- 自動填入 Blade / Ratchet / Bit（可手動改）  
+- `POST /api/ai/identify-bey` body: `{ imageBase64, mimeType }`
+
+### 進度
+
+- [x] Server Gemini Vision 辨識 API  
+- [x] 前端拍照 / 上傳 + 壓縮  
+- [x] DeckEditor 一鍵填入  
+- [x] `/api/ai/status` 設定狀態
+
 ## API 摘要
 
 | Method | Path | 說明 |
@@ -209,6 +240,8 @@ pnpm build
 | POST | `/api/matches/:id/undo` | 撤銷最近一筆 |
 | POST | `/api/matches/:id/complete` | 手動結束 |
 | GET | `/api/matches/:id/actions` | ActionLog（最近 20） |
+| GET | `/api/ai/status` | AI 是否已設定 |
+| POST | `/api/ai/identify-bey` | Gemini 辨識零件 `{ imageBase64, mimeType }` |
 
 ## License
 

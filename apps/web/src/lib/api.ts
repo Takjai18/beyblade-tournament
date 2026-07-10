@@ -297,4 +297,26 @@ export const api = {
 
   getMatchActions: (id: string) =>
     request<ActionLog[]>(`/api/matches/${id}/actions`),
+
+  aiStatus: () =>
+    request<{ configured: boolean; model: string; feature: string }>(
+      "/api/ai/status"
+    ),
+
+  identifyBey: (body: {
+    imageBase64: string;
+    mimeType?: "image/jpeg" | "image/png" | "image/webp" | "image/gif";
+  }) =>
+    request<{
+      blade: string;
+      ratchet: string;
+      bit: string;
+      assist?: string;
+      confidence: number;
+      notes?: string;
+      raw?: string;
+    }>("/api/ai/identify-bey", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
 };

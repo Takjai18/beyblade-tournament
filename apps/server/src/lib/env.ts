@@ -14,4 +14,7 @@ export const env = {
   JWT_SECRET: process.env.JWT_SECRET ?? "dev-secret-change-me",
   CORS_ORIGIN: process.env.CORS_ORIGIN ?? "http://localhost:5173",
   NODE_ENV: process.env.NODE_ENV ?? "development",
+  /** Google AI Studio / Gemini API key — keep server-side only */
+  GEMINI_API_KEY: process.env.GEMINI_API_KEY ?? process.env.VITE_GEMINI_API_KEY ?? "",
+  GEMINI_MODEL: process.env.GEMINI_MODEL ?? "gemini-2.0-flash",
 };
