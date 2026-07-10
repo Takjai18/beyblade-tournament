@@ -1,0 +1,176 @@
+// prisma/schema.prisma
+// BeybladeX Tournament Manager
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Format {
+  SINGLE_ELIM
+  DOUBLE_ELIM
+  ROUND_ROBIN
+  SWISS
+  GROUP_SWISS
+}
+
+enum Status {
+  DRAFT
+  REGISTRATION
+  LIVE
+  FINISHED
+  ARCHIVED
+}
+
+enum MatchStatus {
+  PENDING
+  READY
+  LIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum Role {
+  HOST
+  REFEREE
+  PLAYER
+  VIEWER
+}
+
+enum FinishType {
+  SPIN // +1
+  OVER // +2
+  BURST // +2
+  XTREME // +3
+}
+
+model Tournament {
+  id          String    @id @default(cuid())
+  slug        String    @unique
+  name        String
+  description String?
+  format      Format
+  settings    Json // { pointsToWin: 4 | 7, is3on3: boolean, swissRounds: number, allowReOrder: boolean, maxPlayers: number, ... }
+  status      Status    @default(DRAFT)
+  hostPin     String // 4-6 位數字
+  shareCode   String    @unique @default(cuid())
+  streamUrl   String?
+  logoUrl     String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  startedAt   DateTime?
+  finishedAt  DateTime?
+
+  players    Player[]
+  matches    Match[]
+  stages     Stage[]
+  referees   Referee[]
+  actionLogs ActionLog[]
+
+  @@index([shareCode])
+  @@index([slug])
+}
+
+model Player {
+  id           String   @id @default(cuid())
+  tournamentId String
+  name         String
+  emoji        String?  @default("🌀")
+  avatarUrl    String?
+  seed         Int?
+  decks        Json[] // 3on3: Array of { id, blade, ratchet, bit, assist?, photoUrl?, notes?, order: number }
+  currentOrder Int[] // 當前出戰順序 [0,1,2]
+  stats        Json     @default("{}") // { wins, losses, points, finishes: {spin,over,burst,xtreme}, longestStreak, currentStreak }
+  isDropped    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  tournament  Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  matchesAsP1 Match[]    @relation("Player1")
+  matchesAsP2 Match[]    @relation("Player2")
+
+  @@unique([tournamentId, name])
+  @@index([tournamentId])
+}
+
+model Stage {
+  id           String  @id @default(cuid())
+  tournamentId String
+  name         String
+  type         Format
+  order        Int
+  settings     Json?
+  isActive     Boolean @default(false)
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  groups     Group[]
+  matches    Match[]
+}
+
+model Group {
+  id    String @id @default(cuid())
+  stageId String
+  name  String // "Group A", "Pool 1"
+  order Int
+
+  stage   Stage   @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  matches Match[]
+}
+
+model Match {
+  id           String      @id @default(cuid())
+  tournamentId String
+  stageId      String?
+  groupId      String?
+  round        Int
+  matchNumber  Int?
+  player1Id    String?
+  player2Id    String?
+  score1       Int         @default(0)
+  score2       Int         @default(0)
+  status       MatchStatus @default(PENDING)
+  court        String?
+  finishes     Json[] // Array of { id, type: FinishType, points: number, playerId, timestamp, refereeId, beyIndex? }
+  currentBey1  Int? // 3on3 當前使用第幾顆
+  currentBey2  Int?
+  startedAt    DateTime?
+  completedAt  DateTime?
+  notes        String?
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  stage      Stage?     @relation(fields: [stageId], references: [id])
+  group      Group?     @relation(fields: [groupId], references: [id])
+  player1    Player?    @relation("Player1", fields: [player1Id], references: [id])
+  player2    Player?    @relation("Player2", fields: [player2Id], references: [id])
+
+  @@index([tournamentId, status])
+  @@index([stageId])
+}
+
+model Referee {
+  id           String   @id @default(cuid())
+  tournamentId String
+  name         String
+  pin          String? // 可選 PIN
+  role         Role     @default(REFEREE)
+  createdAt    DateTime @default(now())
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+}
+
+model ActionLog {
+  id           String   @id @default(cuid())
+  tournamentId String
+  matchId      String?
+  action       String // "SCORE", "UNDO", "START_MATCH", "COMPLETE_MATCH", "UPDATE_DECK"...
+  payload      Json
+  performedBy  String? // referee name or "HOST"
+  createdAt    DateTime @default(now())
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+
+  @@index([tournamentId, createdAt])
+}

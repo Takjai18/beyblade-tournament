@@ -1,0 +1,30 @@
+{
+  "name": "beyblade-tournament",
+  "version": "0.1.0",
+  "private": true,
+  "description": "BeybladeX Tournament Manager — 陀螺賽事通",
+  "scripts": {
+    "dev": "pnpm run --parallel dev",
+    "dev:web": "pnpm --filter @beyblade/web dev",
+    "dev:server": "pnpm --filter @beyblade/server dev",
+    "build": "pnpm run -r build",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:migrate": "prisma migrate dev",
+    "db:studio": "prisma studio",
+    "lint": "pnpm run -r lint",
+    "typecheck": "pnpm run -r typecheck"
+  },
+  "devDependencies": {
+    "prisma": "^6.9.0",
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.9.0"
+  },
+  "engines": {
+    "node": ">=22",
+    "pnpm": ">=9"
+  },
+  "packageManager": "pnpm@9.15.0"
+}
