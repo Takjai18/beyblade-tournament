@@ -14,6 +14,7 @@ import {
 import { api, type Match, type Player } from "../lib/api";
 import { FormatBadge, StatusBadge } from "../components/StatusBadge";
 import { PlayerForm } from "../components/PlayerForm";
+import { QRShare } from "../components/QRShare";
 import {
   getSocket,
   joinTournamentRoom,
@@ -21,14 +22,17 @@ import {
   SOCKET_EVENTS,
 } from "../lib/socket";
 import { useTournamentStore } from "../stores/tournamentStore";
+import { useT } from "../stores/localeStore";
 
 export function TournamentPage() {
   const { slug = "" } = useParams();
   const qc = useQueryClient();
+  const t = useT();
   const { session, setSession, clearSession } = useTournamentStore();
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState<Player | null>(null);
   const [pinModal, setPinModal] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [pin, setPin] = useState("");
   const [pinName, setPinName] = useState("Host");
   const [pinError, setPinError] = useState<string | null>(null);
@@ -177,21 +181,17 @@ export function TournamentPage() {
     }
   }
 
-  function copyShare() {
-    if (!tournament) return;
-    const url = `${window.location.origin}/watch/${tournament.shareCode}`;
-    navigator.clipboard.writeText(url).then(() => setToast("已複製觀眾連結"));
-  }
-
   if (isLoading) {
-    return <div className="card text-center text-slate-500">載入賽事…</div>;
+    return (
+      <div className="card text-center text-slate-500">{t("loading")}</div>
+    );
   }
   if (error || !tournament) {
     return (
       <div className="card text-center">
-        <p className="text-orange-300">找不到賽事</p>
+        <p className="text-orange-300">{t("notFound")}</p>
         <Link to="/" className="btn-secondary mt-4 inline-flex">
-          回首頁
+          {t("backHome")}
         </Link>
       </div>
     );
@@ -227,9 +227,13 @@ export function TournamentPage() {
             )}
           </div>
           <div className="flex flex-wrap gap-2">
-            <button type="button" className="btn-secondary !py-1.5 !text-xs" onClick={copyShare}>
+            <button
+              type="button"
+              className="btn-secondary !py-1.5 !text-xs"
+              onClick={() => setShareOpen(true)}
+            >
               <Share2 className="h-3.5 w-3.5" />
-              分享
+              {t("share")}
             </button>
             {!isHost ? (
               <button
@@ -238,7 +242,7 @@ export function TournamentPage() {
                 onClick={() => setPinModal(true)}
               >
                 <Lock className="h-3.5 w-3.5" />
-                主辦登入
+                {t("hostLogin")}
               </button>
             ) : (
               <button
@@ -246,7 +250,7 @@ export function TournamentPage() {
                 className="btn-ghost !py-1.5 !text-xs text-slate-400"
                 onClick={() => clearSession()}
               >
-                登出主辦
+                {t("hostLogout")}
               </button>
             )}
           </div>
@@ -283,7 +287,7 @@ export function TournamentPage() {
       <section className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">
-            玩家管理 ({players.length})
+            {t("players")} ({players.length})
           </h2>
           {isHost && (
             <button
@@ -295,7 +299,7 @@ export function TournamentPage() {
               }}
             >
               <UserPlus className="h-3.5 w-3.5" />
-              新增
+              {t("addPlayer")}
             </button>
           )}
         </div>
@@ -303,11 +307,11 @@ export function TournamentPage() {
         {(showAdd || editing) && isHost && (
           <div className="card border-cyan-400/30">
             <h3 className="mb-3 text-sm font-semibold">
-              {editing ? "編輯玩家" : "新增玩家"}
+              {editing ? t("editPlayer") : t("addPlayer")}
             </h3>
             <PlayerForm
               initial={editing ?? undefined}
-              submitLabel={editing ? "儲存" : "新增玩家"}
+              submitLabel={editing ? t("save") : t("addPlayer")}
               onCancel={() => {
                 setShowAdd(false);
                 setEditing(null);
@@ -325,8 +329,8 @@ export function TournamentPage() {
 
         {players.length === 0 ? (
           <div className="card text-center text-sm text-slate-500">
-            尚未有玩家
-            {!isHost && " · 請主辦登入後新增"}
+            {t("noPlayers")}
+            {!isHost && ` · ${t("hostToAdd")}`}
           </div>
         ) : (
           <ul className="space-y-2">
@@ -390,7 +394,7 @@ export function TournamentPage() {
       <section className="space-y-3">
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">
-            對戰表 ({playableMatches.length}
+            {t("matches")} ({playableMatches.length}
             {matches.length !== playableMatches.length
               ? ` / ${matches.length}`
               : ""}
@@ -404,7 +408,9 @@ export function TournamentPage() {
               onClick={() => {
                 if (
                   matches.length > 0 &&
-                  !confirm("重新產生會清除現有對戰與分數，確定？")
+                  !confirm(
+                    "Regenerate will clear all matches & scores. Continue? / 重新產生會清除現有對戰與分數，確定？"
+                  )
                 ) {
                   return;
                 }
@@ -413,19 +419,18 @@ export function TournamentPage() {
             >
               <Swords className="h-3.5 w-3.5" />
               {generateBracket.isPending
-                ? "產生中…"
+                ? t("generating")
                 : matches.length
-                  ? "重新產生"
-                  : "產生對戰表"}
+                  ? t("regenerateBracket")
+                  : t("generateBracket")}
             </button>
           )}
         </div>
 
         {matches.length === 0 ? (
           <div className="card text-center text-sm text-slate-500">
-            尚未產生對戰表
-            {isHost && players.length >= 2 && " · 點上方按鈕產生"}
-            {players.length < 2 && " · 至少需要 2 位玩家"}
+            {t("noMatches")}
+            {players.length < 2 && ` · ${t("needPlayers")}`}
           </div>
         ) : (
           <ul className="space-y-2">
@@ -479,7 +484,7 @@ export function TournamentPage() {
                           {m.status === "COMPLETED" && (
                             <span className="text-emerald-400">完結 · </span>
                           )}
-                          點擊進入計分板
+                          {t("enterScoreboard")}
                         </div>
                       </div>
                       <Play className="h-4 w-4 shrink-0 text-cyan-400" />
@@ -492,6 +497,13 @@ export function TournamentPage() {
         )}
       </section>
 
+      <QRShare
+        open={shareOpen}
+        onClose={() => setShareOpen(false)}
+        shareCode={tournament.shareCode}
+        tournamentName={tournament.name}
+      />
+
       {/* PIN modal */}
       {pinModal && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 sm:items-center">
@@ -499,9 +511,9 @@ export function TournamentPage() {
             onSubmit={handlePinSubmit}
             className="card w-full max-w-sm space-y-3 border-cyan-400/30"
           >
-            <h3 className="font-semibold">主辦 / 裁判登入</h3>
+            <h3 className="font-semibold">{t("hostLogin")}</h3>
             <div>
-              <label className="label">顯示名稱</label>
+              <label className="label">{t("displayName")}</label>
               <input
                 className="input"
                 value={pinName}
@@ -509,7 +521,7 @@ export function TournamentPage() {
               />
             </div>
             <div>
-              <label className="label">Host PIN</label>
+              <label className="label">{t("hostPin")}</label>
               <input
                 className="input tracking-widest"
                 type="password"
@@ -526,14 +538,14 @@ export function TournamentPage() {
             )}
             <div className="flex gap-2">
               <button type="submit" className="btn-primary flex-1">
-                確認
+                {t("confirm")}
               </button>
               <button
                 type="button"
                 className="btn-secondary"
                 onClick={() => setPinModal(false)}
               >
-                取消
+                {t("cancel")}
               </button>
             </div>
           </form>

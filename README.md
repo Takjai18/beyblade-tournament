@@ -173,8 +173,10 @@ pnpm build
 - [x] 全螢幕計分板 + finishes + ActionLog + Undo
 - [x] 達 `pointsToWin` 自動完結 + 單敗晉級 + 排名更新
 - [x] Socket `match_updated` / `standings_updated` 即時同步
-- [ ] 觀眾模式 QR Code 精修
-- [ ] PWA + i18n 完整
+- [x] 分享 QR Code（`QRShare`）+ 觀眾連結複製
+- [x] 觀眾模式：即時對戰 / 排名 / Socket 同步
+- [x] PWA 基本（vite-plugin-pwa + manifest）
+- [x] i18n 繁中 / English 切換
 
 ## API 摘要
 
