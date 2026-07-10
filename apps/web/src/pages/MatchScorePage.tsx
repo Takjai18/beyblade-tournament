@@ -91,10 +91,13 @@ export function MatchScorePage() {
     return () => clearTimeout(t);
   }, [toast]);
 
+  const is3on3 = Boolean(match?.tournament?.settings?.is3on3);
+
   const scoreMut = useMutation({
     mutationFn: (vars: {
       type: "SPIN" | "OVER" | "BURST" | "XTREME";
       playerId: string;
+      beyIndex?: number;
     }) =>
       api.scoreMatch(matchId, {
         ...vars,
@@ -107,6 +110,14 @@ export function MatchScorePage() {
         sfx.complete();
         setToast("對戰結束！");
       }
+    },
+  });
+
+  const beyMut = useMutation({
+    mutationFn: (body: { currentBey1?: number; currentBey2?: number }) =>
+      api.setMatchBey(matchId, body),
+    onSuccess: (m) => {
+      qc.setQueryData(["match", matchId], m);
     },
   });
 
@@ -147,7 +158,8 @@ export function MatchScorePage() {
     scoreMut.isPending ||
     undoMut.isPending ||
     completeMut.isPending ||
-    startMut.isPending;
+    startMut.isPending ||
+    beyMut.isPending;
 
   if (isLoading) {
     return (
@@ -196,9 +208,10 @@ export function MatchScorePage() {
           pointsToWin={pointsToWin}
           canScore={canScore}
           busy={busy}
+          is3on3={is3on3}
           actions={actions}
-          onScore={async (type, playerId) => {
-            await scoreMut.mutateAsync({ type, playerId });
+          onScore={async (type, playerId, beyIndex) => {
+            await scoreMut.mutateAsync({ type, playerId, beyIndex });
           }}
           onUndo={async () => {
             await undoMut.mutateAsync();
@@ -208,6 +221,13 @@ export function MatchScorePage() {
           }}
           onStart={async () => {
             await startMut.mutateAsync();
+          }}
+          onSetBey={async (side, index) => {
+            await beyMut.mutateAsync(
+              side === "p1"
+                ? { currentBey1: index }
+                : { currentBey2: index }
+            );
           }}
         />
       </div>

@@ -77,6 +77,7 @@ export interface Match {
   id: string;
   tournamentId: string;
   stageId: string | null;
+  groupId?: string | null;
   round: number;
   matchNumber: number | null;
   player1Id: string | null;
@@ -84,11 +85,15 @@ export interface Match {
   score1: number;
   score2: number;
   status: string;
+  notes?: string | null;
   finishes: FinishRecord[];
+  currentBey1?: number | null;
+  currentBey2?: number | null;
   startedAt: string | null;
   completedAt: string | null;
   player1?: Player | null;
   player2?: Player | null;
+  group?: { id: string; name: string } | null;
   tournament?: {
     id: string;
     slug: string;
@@ -165,6 +170,7 @@ export const api = {
       emoji?: string;
       seed?: number;
       decks?: unknown[];
+      currentOrder?: number[];
     }
   ) =>
     request<Player>(`/api/tournaments/${tournamentId}/players`, {
@@ -225,6 +231,25 @@ export const api = {
     }>(`/api/tournaments/${tournamentId}/generate`, {
       method: "POST",
       body: JSON.stringify(body ?? {}),
+    }),
+
+  swissNextRound: (tournamentId: string) =>
+    request<{
+      round: number;
+      matches: Match[];
+      newCount: number;
+    }>(`/api/tournaments/${tournamentId}/swiss/next`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    }),
+
+  setMatchBey: (
+    id: string,
+    body: { currentBey1?: number; currentBey2?: number }
+  ) =>
+    request<Match>(`/api/matches/${id}/bey`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
     }),
 
   startMatch: (id: string, body?: { refereeName?: string }) =>

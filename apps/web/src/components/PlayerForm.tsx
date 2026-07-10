@@ -1,5 +1,8 @@
 import { useState } from "react";
+import type { Deck } from "@beyblade/shared";
+import { validateDecks } from "@beyblade/shared";
 import type { Player } from "../lib/api";
+import { DeckEditor } from "./DeckEditor";
 
 const EMOJIS = ["🌀", "⚡", "🔥", "❄️", "🐉", "⭐", "🎯", "💥", "🛡️", "👑"];
 
@@ -9,9 +12,12 @@ interface Props {
     name: string;
     emoji: string;
     seed?: number;
+    decks?: Deck[];
+    currentOrder?: number[];
   }) => Promise<void>;
   onCancel?: () => void;
   submitLabel?: string;
+  showDecks?: boolean;
 }
 
 export function PlayerForm({
@@ -19,10 +25,16 @@ export function PlayerForm({
   onSubmit,
   onCancel,
   submitLabel = "新增玩家",
+  showDecks = true,
 }: Props) {
   const [name, setName] = useState(initial?.name ?? "");
   const [emoji, setEmoji] = useState(initial?.emoji ?? "🌀");
   const [seed, setSeed] = useState(initial?.seed?.toString() ?? "");
+  const [decks, setDecks] = useState<Deck[]>(
+    Array.isArray(initial?.decks)
+      ? (initial!.decks as Deck[])
+      : []
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,6 +44,14 @@ export function PlayerForm({
       setError("請輸入名字");
       return;
     }
+    const filled = decks.filter((d) => d.blade || d.ratchet || d.bit);
+    if (filled.length > 0) {
+      const check = validateDecks(filled);
+      if (!check.ok) {
+        setError(check.error);
+        return;
+      }
+    }
     setLoading(true);
     setError(null);
     try {
@@ -39,9 +59,12 @@ export function PlayerForm({
         name: name.trim(),
         emoji,
         seed: seed ? Number(seed) : undefined,
+        decks: filled.map((d, i) => ({ ...d, order: i })),
+        currentOrder: filled.map((_, i) => i),
       });
       setName("");
       setSeed("");
+      setDecks([]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "操作失敗");
     } finally {
@@ -92,6 +115,11 @@ export function PlayerForm({
           placeholder="種子順位"
         />
       </div>
+
+      {showDecks && (
+        <DeckEditor value={decks} onChange={setDecks} disabled={loading} />
+      )}
+
       {error && (
         <p className="text-sm text-orange-400" role="alert">
           {error}

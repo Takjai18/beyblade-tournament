@@ -1,6 +1,7 @@
 import { FINISH_POINTS, type FinishType } from "@beyblade/shared";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "./prisma.js";
+import { advanceDoubleElim } from "./doubleElim.js";
 
 export interface FinishRecord {
   id: string;
@@ -95,7 +96,6 @@ function asStats(raw: unknown): Stats {
   };
 }
 
-/** Update player W/L/points when a match is completed */
 export async function applyMatchResultToStats(match: {
   player1Id: string | null;
   player2Id: string | null;
@@ -104,12 +104,10 @@ export async function applyMatchResultToStats(match: {
   finishes: FinishRecord[];
 }) {
   if (!match.player1Id || !match.player2Id) return;
-  if (match.score1 === match.score2) return; // no ties expected
+  if (match.score1 === match.score2) return;
 
   const winnerId =
     match.score1 > match.score2 ? match.player1Id : match.player2Id;
-  const loserId =
-    match.score1 > match.score2 ? match.player2Id : match.player1Id;
 
   const [p1, p2] = await Promise.all([
     prisma.player.findUnique({ where: { id: match.player1Id } }),
@@ -162,19 +160,28 @@ export async function applyMatchResultToStats(match: {
     f2
   );
 
-  return { winnerId, loserId };
+  return {
+    winnerId,
+    loserId:
+      winnerId === match.player1Id ? match.player2Id : match.player1Id,
+  };
 }
 
-/** Advance winner into next single-elim match */
 export async function advanceWinner(params: {
   tournamentId: string;
   stageId: string | null;
   round: number;
   matchNumber: number | null;
   winnerId: string;
+  notes?: string | null;
 }) {
-  const { tournamentId, stageId, round, matchNumber, winnerId } = params;
+  const { tournamentId, stageId, round, matchNumber, winnerId, notes } =
+    params;
   if (matchNumber == null) return null;
+  if (notes && notes !== "W" && notes !== null) {
+    // non-WB single path
+    if (notes !== "W") return null;
+  }
 
   const nextRound = round + 1;
   const nextMatchNumber = Math.ceil(matchNumber / 2);
@@ -185,6 +192,7 @@ export async function advanceWinner(params: {
       ...(stageId ? { stageId } : {}),
       round: nextRound,
       matchNumber: nextMatchNumber,
+      ...(notes ? { notes: "W" } : {}),
     },
   });
   if (!next) return null;
@@ -194,7 +202,6 @@ export async function advanceWinner(params: {
     ? { player1: { connect: { id: winnerId } } }
     : { player2: { connect: { id: winnerId } } };
 
-  // If both sides filled after this, mark READY
   const updated = await prisma.match.update({
     where: { id: next.id },
     data,
@@ -209,4 +216,49 @@ export async function advanceWinner(params: {
     });
   }
   return updated;
+}
+
+export async function onMatchCompleted(params: {
+  format: string;
+  tournamentId: string;
+  stageId: string | null;
+  match: {
+    id: string;
+    round: number;
+    matchNumber: number | null;
+    notes: string | null;
+    player1Id: string | null;
+    player2Id: string | null;
+    score1: number;
+    score2: number;
+  };
+  winnerId: string;
+  loserId: string | null;
+}) {
+  const { format, tournamentId, stageId, match, winnerId, loserId } = params;
+
+  if (format === "SINGLE_ELIM") {
+    return advanceWinner({
+      tournamentId,
+      stageId,
+      round: match.round,
+      matchNumber: match.matchNumber,
+      winnerId,
+      notes: match.notes ?? "W",
+    });
+  }
+
+  if (format === "DOUBLE_ELIM" && loserId) {
+    const result = await advanceDoubleElim({
+      tournamentId,
+      stageId,
+      match,
+      winnerId,
+      loserId,
+    });
+    return result.nextMatches[0] ?? null;
+  }
+
+  // SWISS / ROUND_ROBIN / GROUP_SWISS: no auto-advance
+  return null;
 }

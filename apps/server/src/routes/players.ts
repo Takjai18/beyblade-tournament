@@ -1,5 +1,10 @@
 import type { FastifyInstance } from "fastify";
-import { CreatePlayerSchema, UpdatePlayerSchema } from "@beyblade/shared";
+import {
+  CreatePlayerSchema,
+  UpdatePlayerSchema,
+  validateDecks,
+  type Deck,
+} from "@beyblade/shared";
 import { prisma } from "../lib/prisma.js";
 import type { Prisma } from "@prisma/client";
 
@@ -55,10 +60,16 @@ export async function playerRoutes(app: FastifyInstance) {
       }
 
       const data = parsed.data;
+      if (data.decks && data.decks.length > 0) {
+        const check = validateDecks(data.decks as Deck[]);
+        if (!check.ok) {
+          return reply.status(400).send({ error: check.error });
+        }
+      }
       const decks = (data.decks ?? []) as Prisma.InputJsonValue[];
       const currentOrder =
         data.currentOrder ??
-        decks.map((_, i) => i);
+        (data.decks ?? []).map((_, i) => i);
 
       try {
         const player = await prisma.player.create({
@@ -138,6 +149,12 @@ export async function playerRoutes(app: FastifyInstance) {
       }
 
       const body = parsed.data;
+      if (body.decks) {
+        const check = validateDecks(body.decks as Deck[]);
+        if (!check.ok) {
+          return reply.status(400).send({ error: check.error });
+        }
+      }
       try {
         const player = await prisma.player.update({
           where: { id: req.params.id },

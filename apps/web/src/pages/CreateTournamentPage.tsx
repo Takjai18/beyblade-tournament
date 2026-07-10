@@ -18,6 +18,8 @@ export function CreateTournamentPage() {
   const [hostPin, setHostPin] = useState("");
   const [pointsToWin, setPointsToWin] = useState<4 | 7>(4);
   const [is3on3, setIs3on3] = useState(false);
+  const [swissRounds, setSwissRounds] = useState(5);
+  const [groupCount, setGroupCount] = useState(4);
   const [error, setError] = useState<string | null>(null);
 
   const mutation = useMutation({
@@ -52,7 +54,12 @@ export function CreateTournamentPage() {
       description: description.trim() || undefined,
       format,
       hostPin,
-      settings: { pointsToWin, is3on3 },
+      settings: {
+        pointsToWin,
+        is3on3,
+        swissRounds,
+        groupCount,
+      },
     });
   }
 
@@ -102,11 +109,19 @@ export function CreateTournamentPage() {
               </option>
             ))}
           </select>
-          {(format === "SWISS" ||
-            format === "GROUP_SWISS" ||
-            format === "DOUBLE_ELIM") && (
-            <p className="mt-1.5 text-xs text-orange-400/90">
-              此賽制完整流程屬 Phase 2；目前可先建立並管理玩家。
+          {format === "SWISS" && (
+            <p className="mt-1.5 text-xs text-slate-500">
+              瑞士制：依勝負配對，可分多輪（下方設定輪數）。
+            </p>
+          )}
+          {format === "DOUBLE_ELIM" && (
+            <p className="mt-1.5 text-xs text-slate-500">
+              雙敗：勝部 / 敗部 + 總決賽，輸兩場出局。
+            </p>
+          )}
+          {format === "GROUP_SWISS" && (
+            <p className="mt-1.5 text-xs text-slate-500">
+              分組循環：先 snake 分組，組內循環賽。
             </p>
           )}
         </div>
@@ -149,6 +164,34 @@ export function CreateTournamentPage() {
             </button>
           </div>
         </div>
+
+        {format === "SWISS" && (
+          <div>
+            <label className="label">瑞士制輪數</label>
+            <input
+              className="input"
+              type="number"
+              min={1}
+              max={20}
+              value={swissRounds}
+              onChange={(e) => setSwissRounds(Number(e.target.value) || 5)}
+            />
+          </div>
+        )}
+
+        {format === "GROUP_SWISS" && (
+          <div>
+            <label className="label">組數</label>
+            <input
+              className="input"
+              type="number"
+              min={2}
+              max={16}
+              value={groupCount}
+              onChange={(e) => setGroupCount(Number(e.target.value) || 4)}
+            />
+          </div>
+        )}
 
         <div>
           <label className="label">Host PIN（4–6 位數字）*</label>

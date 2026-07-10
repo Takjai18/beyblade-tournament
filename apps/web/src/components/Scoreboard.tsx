@@ -44,11 +44,28 @@ interface Props {
   pointsToWin: number;
   canScore: boolean;
   busy: boolean;
-  onScore: (type: FinishType, playerId: string) => Promise<void>;
+  is3on3?: boolean;
+  onScore: (
+    type: FinishType,
+    playerId: string,
+    beyIndex?: number
+  ) => Promise<void>;
   onUndo: () => Promise<void>;
   onComplete: () => Promise<void>;
   onStart: () => Promise<void>;
+  onSetBey?: (side: "p1" | "p2", index: number) => Promise<void>;
   actions?: { id: string; action: string; createdAt: string; performedBy: string | null }[];
+}
+
+function deckLabel(player: Match["player1"], index: number | null | undefined) {
+  if (!player || index == null) return null;
+  const decks = Array.isArray(player.decks) ? player.decks : [];
+  const d = decks[index] as
+    | { blade?: string; ratchet?: string; bit?: string }
+    | undefined;
+  if (!d) return `Bey ${index + 1}`;
+  const parts = [d.blade, d.ratchet, d.bit].filter(Boolean);
+  return parts.length ? parts.join(" · ") : `Bey ${index + 1}`;
 }
 
 function ScoreDigit({ value, bounceKey }: { value: number; bounceKey: string }) {
@@ -75,10 +92,12 @@ export function Scoreboard({
   pointsToWin,
   canScore,
   busy,
+  is3on3 = false,
   onScore,
   onUndo,
   onComplete,
   onStart,
+  onSetBey,
   actions = [],
 }: Props) {
   const [side, setSide] = useState<"p1" | "p2">("p1");
@@ -97,15 +116,29 @@ export function Scoreboard({
     match.player1Id &&
     match.player2Id;
 
+  const bracketTag =
+    match.notes === "W"
+      ? "WB"
+      : match.notes === "L"
+        ? "LB"
+        : match.notes === "GF"
+          ? "GF"
+          : match.notes === "S"
+            ? "Swiss"
+            : match.notes === "G"
+              ? "Group"
+              : null;
+
   async function handleScore(type: FinishType) {
     const playerId = side === "p1" ? match.player1Id : match.player2Id;
     if (!playerId) return;
+    const beyIndex =
+      side === "p1" ? (match.currentBey1 ?? undefined) : (match.currentBey2 ?? undefined);
     setError(null);
     try {
-      // Haptic if available
       if (navigator.vibrate) navigator.vibrate(30);
       sfx.playFinish(type);
-      await onScore(type, playerId);
+      await onScore(type, playerId, is3on3 ? beyIndex : undefined);
       setLastScoreKey(`${Date.now()}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "計分失敗");
@@ -150,6 +183,7 @@ export function Scoreboard({
 
         <div className="flex flex-col items-center px-1">
           <span className="text-xs uppercase tracking-widest text-slate-500">
+            {bracketTag ? `${bracketTag} · ` : ""}
             R{match.round}
             {match.matchNumber != null ? ` · M${match.matchNumber}` : ""}
           </span>
@@ -201,6 +235,50 @@ export function Scoreboard({
         </span>
         （點擊上方選手卡片切換）
       </p>
+
+      {/* 3on3 current bey */}
+      {is3on3 && (
+        <div className="mx-3 mt-2 grid grid-cols-2 gap-2 sm:mx-6">
+          {(["p1", "p2"] as const).map((s) => {
+            const player = s === "p1" ? p1 : p2;
+            const cur = s === "p1" ? match.currentBey1 : match.currentBey2;
+            const decks = Array.isArray(player?.decks) ? player!.decks : [];
+            const count = Math.max(decks.length, 1);
+            return (
+              <div
+                key={s}
+                className="rounded-xl border border-slate-800 bg-slate-900/50 p-2"
+              >
+                <div className="mb-1 text-[10px] uppercase text-slate-500">
+                  {player?.name ?? s} 出戰
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {Array.from({ length: Math.min(3, count || 3) }).map((_, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      disabled={!canScore || busy || isDone}
+                      onClick={() => onSetBey?.(s, i)}
+                      className={`rounded-lg px-2 py-1 text-xs font-semibold transition ${
+                        cur === i
+                          ? s === "p1"
+                            ? "bg-cyan-400 text-slate-950"
+                            : "bg-orange-400 text-slate-950"
+                          : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                      }`}
+                    >
+                      #{i + 1}
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-1 truncate text-[11px] text-slate-400">
+                  {deckLabel(player, cur) ?? "—"}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {error && (
         <p className="mx-4 mt-2 rounded-lg bg-orange-500/15 px-3 py-2 text-center text-sm text-orange-300">

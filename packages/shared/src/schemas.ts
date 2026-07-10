@@ -46,6 +46,8 @@ export const TournamentSettingsSchema = z.object({
   swissRounds: z.number().int().min(1).max(20).default(5),
   allowReOrder: z.boolean().default(true),
   maxPlayers: z.number().int().min(2).max(256).default(64),
+  /** GROUP_SWISS / group stage 組數 */
+  groupCount: z.number().int().min(2).max(16).default(4),
 });
 
 export const CreateTournamentSchema = z.object({
@@ -92,6 +94,11 @@ export const UpdatePlayerSchema = z.object({
   currentOrder: z.array(z.number().int().min(0)).max(3).optional(),
   isDropped: z.boolean().optional(),
   stats: z.record(z.unknown()).optional(),
+});
+
+export const SetMatchBeySchema = z.object({
+  currentBey1: z.number().int().min(0).max(2).optional(),
+  currentBey2: z.number().int().min(0).max(2).optional(),
 });
 
 export const ScoreMatchSchema = z.object({

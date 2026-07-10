@@ -178,6 +178,14 @@ pnpm build
 - [x] PWA 基本（vite-plugin-pwa + manifest）
 - [x] i18n 繁中 / English 切換
 
+## Phase 2 進度
+
+- [x] 雙敗淘汰（WB / LB / GF 晉級）
+- [x] 瑞士制（score-based pairing + 下一輪）
+- [x] 分組循環（snake 分組 + 組內 RR）
+- [x] 3on3 decks 編輯 + 零件不可重複驗證
+- [x] 計分板當前出戰陀螺切換（currentBey）
+
 ## API 摘要
 
 | Method | Path | 說明 |

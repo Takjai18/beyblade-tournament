@@ -102,8 +102,13 @@ export function TournamentPage() {
   }, [toast]);
 
   const createPlayer = useMutation({
-    mutationFn: (body: { name: string; emoji: string; seed?: number }) =>
-      api.createPlayer(tournament!.id, body),
+    mutationFn: (body: {
+      name: string;
+      emoji: string;
+      seed?: number;
+      decks?: unknown[];
+      currentOrder?: number[];
+    }) => api.createPlayer(tournament!.id, body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["tournament", slug] });
       setShowAdd(false);
@@ -117,7 +122,7 @@ export function TournamentPage() {
       body,
     }: {
       id: string;
-      body: { name: string; emoji: string; seed?: number };
+      body: Record<string, unknown>;
     }) => api.updatePlayer(id, body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["tournament", slug] });
@@ -155,6 +160,17 @@ export function TournamentPage() {
     },
     onError: (err) => {
       setToast(err instanceof Error ? err.message : "產生對戰表失敗");
+    },
+  });
+
+  const swissNext = useMutation({
+    mutationFn: () => api.swissNextRound(tournament!.id),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ["tournament", slug] });
+      setToast(`瑞士制第 ${res.round} 輪已產生（${res.newCount} 場）`);
+    },
+    onError: (err) => {
+      setToast(err instanceof Error ? err.message : "產生下一輪失敗");
     },
   });
 
@@ -318,11 +334,15 @@ export function TournamentPage() {
               }}
               onSubmit={async (data) => {
                 if (editing) {
-                  await updatePlayer.mutateAsync({ id: editing.id, body: data });
+                  await updatePlayer.mutateAsync({
+                    id: editing.id,
+                    body: data as Record<string, unknown>,
+                  });
                 } else {
                   await createPlayer.mutateAsync(data);
                 }
               }}
+              showDecks={Boolean(tournament.settings?.is3on3) || true}
             />
           </div>
         )}
@@ -401,29 +421,41 @@ export function TournamentPage() {
             )
           </h2>
           {isHost && (
-            <button
-              type="button"
-              className="btn-primary !py-1.5 !text-xs"
-              disabled={generateBracket.isPending || players.length < 2}
-              onClick={() => {
-                if (
-                  matches.length > 0 &&
-                  !confirm(
-                    "Regenerate will clear all matches & scores. Continue? / 重新產生會清除現有對戰與分數，確定？"
-                  )
-                ) {
-                  return;
-                }
-                generateBracket.mutate();
-              }}
-            >
-              <Swords className="h-3.5 w-3.5" />
-              {generateBracket.isPending
-                ? t("generating")
-                : matches.length
-                  ? t("regenerateBracket")
-                  : t("generateBracket")}
-            </button>
+            <div className="flex flex-wrap gap-2">
+              {tournament.format === "SWISS" && matches.length > 0 && (
+                <button
+                  type="button"
+                  className="btn-secondary !py-1.5 !text-xs"
+                  disabled={swissNext.isPending}
+                  onClick={() => swissNext.mutate()}
+                >
+                  {swissNext.isPending ? "…" : "下一輪瑞士制"}
+                </button>
+              )}
+              <button
+                type="button"
+                className="btn-primary !py-1.5 !text-xs"
+                disabled={generateBracket.isPending || players.length < 2}
+                onClick={() => {
+                  if (
+                    matches.length > 0 &&
+                    !confirm(
+                      "Regenerate will clear all matches & scores. Continue? / 重新產生會清除現有對戰與分數，確定？"
+                    )
+                  ) {
+                    return;
+                  }
+                  generateBracket.mutate();
+                }}
+              >
+                <Swords className="h-3.5 w-3.5" />
+                {generateBracket.isPending
+                  ? t("generating")
+                  : matches.length
+                    ? t("regenerateBracket")
+                    : t("generateBracket")}
+              </button>
+            </div>
           )}
         </div>
 
@@ -435,15 +467,27 @@ export function TournamentPage() {
         ) : (
           <ul className="space-y-2">
             {matches.map((m) => {
-              const label = `R${m.round}${
-                m.matchNumber != null ? ` · #${m.matchNumber}` : ""
+              const bracket =
+                m.notes === "W"
+                  ? "WB"
+                  : m.notes === "L"
+                    ? "LB"
+                    : m.notes === "GF"
+                      ? "GF"
+                      : m.notes === "S"
+                        ? "S"
+                        : m.group?.name
+                          ? m.group.name.replace("Group ", "G")
+                          : "";
+              const label = `${bracket ? bracket + " " : ""}R${m.round}${
+                m.matchNumber != null ? `·${m.matchNumber}` : ""
               }`;
               const isBye = !m.player1Id || !m.player2Id;
               return (
                 <li key={m.id}>
                   {isBye ? (
                     <div className="card flex items-center gap-3 !py-3 opacity-60">
-                      <span className="text-xs text-slate-500 w-16 shrink-0">
+                      <span className="w-20 shrink-0 text-xs text-slate-500">
                         {label}
                       </span>
                       <span className="flex-1 text-sm text-slate-400">
@@ -458,7 +502,7 @@ export function TournamentPage() {
                       to={`/t/${tournament.slug}/match/${m.id}`}
                       className="card flex items-center gap-3 !py-3 transition hover:border-cyan-400/40"
                     >
-                      <span className="w-16 shrink-0 text-xs text-slate-500">
+                      <span className="w-20 shrink-0 text-xs text-slate-500">
                         {label}
                       </span>
                       <div className="min-w-0 flex-1">

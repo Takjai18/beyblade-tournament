@@ -30,6 +30,7 @@ export const DEFAULT_TOURNAMENT_SETTINGS = {
   swissRounds: 5,
   allowReOrder: true,
   maxPlayers: 64,
+  groupCount: 4,
 };
 
 export const SOCKET_EVENTS = {
