@@ -5,11 +5,12 @@ import { HomePage } from "./pages/HomePage";
 import { CreateTournamentPage } from "./pages/CreateTournamentPage";
 import { TournamentPage } from "./pages/TournamentPage";
 import { WatchPage } from "./pages/WatchPage";
+import { MatchScorePage } from "./pages/MatchScorePage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 10_000,
+      staleTime: 5_000,
       retry: 1,
     },
   },
@@ -20,6 +21,8 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <Routes>
+          {/* Full-screen scoreboard — no main layout chrome */}
+          <Route path="t/:slug/match/:matchId" element={<MatchScorePage />} />
           <Route element={<Layout />}>
             <Route index element={<HomePage />} />
             <Route path="create" element={<CreateTournamentPage />} />

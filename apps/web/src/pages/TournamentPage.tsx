@@ -8,8 +8,10 @@ import {
   Share2,
   Lock,
   Radio,
+  Swords,
+  Play,
 } from "lucide-react";
-import { api, type Player } from "../lib/api";
+import { api, type Match, type Player } from "../lib/api";
 import { FormatBadge, StatusBadge } from "../components/StatusBadge";
 import { PlayerForm } from "../components/PlayerForm";
 import {
@@ -76,11 +78,15 @@ export function TournamentPage() {
     };
     s.on(SOCKET_EVENTS.PLAYER_UPDATED, invalidate);
     s.on(SOCKET_EVENTS.TOURNAMENT_UPDATED, invalidate);
+    s.on(SOCKET_EVENTS.MATCH_UPDATED, invalidate);
+    s.on(SOCKET_EVENTS.STANDINGS_UPDATED, invalidate);
 
     return () => {
       cancelled = true;
       s.off(SOCKET_EVENTS.PLAYER_UPDATED, invalidate);
       s.off(SOCKET_EVENTS.TOURNAMENT_UPDATED, invalidate);
+      s.off(SOCKET_EVENTS.MATCH_UPDATED, invalidate);
+      s.off(SOCKET_EVENTS.STANDINGS_UPDATED, invalidate);
       leaveTournamentRoom();
     };
   }, [tournament?.id, isHost, session?.role, session?.pin, slug, qc]);
@@ -133,6 +139,21 @@ export function TournamentPage() {
     },
   });
 
+  const generateBracket = useMutation({
+    mutationFn: () =>
+      api.generateBracket(tournament!.id, {
+        format: tournament!.format,
+        seeding: "seed",
+      }),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ["tournament", slug] });
+      setToast(`已產生 ${res.count} 場對戰`);
+    },
+    onError: (err) => {
+      setToast(err instanceof Error ? err.message : "產生對戰表失敗");
+    },
+  });
+
   async function handlePinSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!tournament) return;
@@ -177,6 +198,10 @@ export function TournamentPage() {
   }
 
   const players = tournament.players ?? [];
+  const matches = (tournament.matches ?? []) as Match[];
+  const playableMatches = matches.filter(
+    (m) => m.player1Id && m.player2Id && m.status !== "CANCELLED"
+  );
 
   return (
     <div className="space-y-5">
@@ -361,14 +386,110 @@ export function TournamentPage() {
         )}
       </section>
 
-      {/* Phase 1 placeholder */}
-      <section className="card border-dashed border-slate-700 text-sm text-slate-500">
-        <p className="font-medium text-slate-400">接下來（Phase 1 剩餘）</p>
-        <ul className="mt-2 list-inside list-disc space-y-1">
-          <li>產生單敗 / 循環對戰表</li>
-          <li>全螢幕計分板 + Undo</li>
-          <li>觀眾模式 /watch/:shareCode + QR</li>
-        </ul>
+      {/* Matches */}
+      <section className="space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">
+            對戰表 ({playableMatches.length}
+            {matches.length !== playableMatches.length
+              ? ` / ${matches.length}`
+              : ""}
+            )
+          </h2>
+          {isHost && (
+            <button
+              type="button"
+              className="btn-primary !py-1.5 !text-xs"
+              disabled={generateBracket.isPending || players.length < 2}
+              onClick={() => {
+                if (
+                  matches.length > 0 &&
+                  !confirm("重新產生會清除現有對戰與分數，確定？")
+                ) {
+                  return;
+                }
+                generateBracket.mutate();
+              }}
+            >
+              <Swords className="h-3.5 w-3.5" />
+              {generateBracket.isPending
+                ? "產生中…"
+                : matches.length
+                  ? "重新產生"
+                  : "產生對戰表"}
+            </button>
+          )}
+        </div>
+
+        {matches.length === 0 ? (
+          <div className="card text-center text-sm text-slate-500">
+            尚未產生對戰表
+            {isHost && players.length >= 2 && " · 點上方按鈕產生"}
+            {players.length < 2 && " · 至少需要 2 位玩家"}
+          </div>
+        ) : (
+          <ul className="space-y-2">
+            {matches.map((m) => {
+              const label = `R${m.round}${
+                m.matchNumber != null ? ` · #${m.matchNumber}` : ""
+              }`;
+              const isBye = !m.player1Id || !m.player2Id;
+              return (
+                <li key={m.id}>
+                  {isBye ? (
+                    <div className="card flex items-center gap-3 !py-3 opacity-60">
+                      <span className="text-xs text-slate-500 w-16 shrink-0">
+                        {label}
+                      </span>
+                      <span className="flex-1 text-sm text-slate-400">
+                        {m.player1?.name ?? m.player2?.name ?? "—"} · BYE
+                      </span>
+                      <span className="text-xs text-slate-600">
+                        {m.status}
+                      </span>
+                    </div>
+                  ) : (
+                    <Link
+                      to={`/t/${tournament.slug}/match/${m.id}`}
+                      className="card flex items-center gap-3 !py-3 transition hover:border-cyan-400/40"
+                    >
+                      <span className="w-16 shrink-0 text-xs text-slate-500">
+                        {label}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 text-sm font-medium">
+                          <span className="truncate">
+                            {m.player1?.emoji} {m.player1?.name}
+                          </span>
+                          <span className="tabular-nums text-cyan-300">
+                            {m.score1}
+                          </span>
+                          <span className="text-slate-600">–</span>
+                          <span className="tabular-nums text-orange-300">
+                            {m.score2}
+                          </span>
+                          <span className="truncate">
+                            {m.player2?.emoji} {m.player2?.name}
+                          </span>
+                        </div>
+                        <div className="mt-0.5 text-xs text-slate-500">
+                          {m.status === "LIVE" && (
+                            <span className="text-orange-400">LIVE · </span>
+                          )}
+                          {m.status === "COMPLETED" && (
+                            <span className="text-emerald-400">完結 · </span>
+                          )}
+                          點擊進入計分板
+                        </div>
+                      </div>
+                      <Play className="h-4 w-4 shrink-0 text-cyan-400" />
+                    </Link>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </section>
 
       {/* PIN modal */}

@@ -4,6 +4,7 @@ import sensible from "@fastify/sensible";
 import { env } from "./lib/env.js";
 import { tournamentRoutes } from "./routes/tournaments.js";
 import { playerRoutes } from "./routes/players.js";
+import { matchRoutes } from "./routes/matches.js";
 
 export async function buildApp() {
   const app = Fastify({
@@ -24,6 +25,7 @@ export async function buildApp() {
 
   await app.register(tournamentRoutes);
   await app.register(playerRoutes);
+  await app.register(matchRoutes);
 
   return app;
 }

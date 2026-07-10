@@ -89,9 +89,11 @@ pnpm dev:web
 - [x] Tournament CRUD API
 - [x] Player CRUD API
 - [x] 前端：首頁 / 建立 / 主控台（玩家管理）
-- [ ] brackets-manager 單敗 / 循環
-- [ ] 全螢幕計分板 + Undo
-- [ ] 觀眾模式 + QR
+- [x] 單敗 / 循環對戰表產生（內建 bracket engine）
+- [x] 全螢幕計分板 + finishes + ActionLog + Undo
+- [x] 達 `pointsToWin` 自動完結 + 單敗晉級 + 排名更新
+- [x] Socket `match_updated` / `standings_updated` 即時同步
+- [ ] 觀眾模式 QR Code 精修
 - [ ] PWA + i18n 完整
 
 ## API 摘要
@@ -109,6 +111,14 @@ pnpm dev:web
 | POST | `/api/tournaments/:id/join-referee` | PIN 驗證 |
 | GET | `/api/tournaments/:id/standings` | 排名 |
 | GET | `/api/watch/:shareCode` | 觀眾用 shareCode |
+| POST | `/api/tournaments/:id/generate` | 產生對戰表 |
+| GET | `/api/tournaments/:id/matches` | 對戰列表 |
+| GET | `/api/matches/:id` | 單場詳情 |
+| POST | `/api/matches/:id/start` | 開始 |
+| POST | `/api/matches/:id/score` | 計分 `{ type, playerId }` |
+| POST | `/api/matches/:id/undo` | 撤銷最近一筆 |
+| POST | `/api/matches/:id/complete` | 手動結束 |
+| GET | `/api/matches/:id/actions` | ActionLog（最近 20） |
 
 ## License
 

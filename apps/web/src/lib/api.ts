@@ -63,6 +63,52 @@ export interface Player {
   createdAt: string;
 }
 
+export interface FinishRecord {
+  id: string;
+  type: "SPIN" | "OVER" | "BURST" | "XTREME";
+  points: number;
+  playerId: string;
+  timestamp: string;
+  refereeId?: string;
+  beyIndex?: number;
+}
+
+export interface Match {
+  id: string;
+  tournamentId: string;
+  stageId: string | null;
+  round: number;
+  matchNumber: number | null;
+  player1Id: string | null;
+  player2Id: string | null;
+  score1: number;
+  score2: number;
+  status: string;
+  finishes: FinishRecord[];
+  startedAt: string | null;
+  completedAt: string | null;
+  player1?: Player | null;
+  player2?: Player | null;
+  tournament?: {
+    id: string;
+    slug: string;
+    name: string;
+    format: string;
+    settings: Record<string, unknown>;
+    status: string;
+  };
+}
+
+export interface ActionLog {
+  id: string;
+  tournamentId: string;
+  matchId: string | null;
+  action: string;
+  payload: unknown;
+  performedBy: string | null;
+  createdAt: string;
+}
+
 export interface Tournament {
   id: string;
   slug: string;
@@ -77,7 +123,7 @@ export interface Tournament {
   createdAt: string;
   updatedAt: string;
   players?: Player[];
-  matches?: unknown[];
+  matches?: Match[];
   hasHostPin?: boolean;
   _count?: { players: number; matches: number };
 }
@@ -161,4 +207,69 @@ export const api = {
 
   getByShareCode: (shareCode: string) =>
     request<Tournament>(`/api/watch/${shareCode}`),
+
+  listMatches: (tournamentId: string) =>
+    request<Match[]>(`/api/tournaments/${tournamentId}/matches`),
+
+  getMatch: (id: string) => request<Match>(`/api/matches/${id}`),
+
+  generateBracket: (
+    tournamentId: string,
+    body?: { format?: string; seeding?: string }
+  ) =>
+    request<{
+      stage: unknown;
+      matches: Match[];
+      format: string;
+      count: number;
+    }>(`/api/tournaments/${tournamentId}/generate`, {
+      method: "POST",
+      body: JSON.stringify(body ?? {}),
+    }),
+
+  startMatch: (id: string, body?: { refereeName?: string }) =>
+    request<Match>(`/api/matches/${id}/start`, {
+      method: "POST",
+      body: JSON.stringify(body ?? {}),
+    }),
+
+  scoreMatch: (
+    id: string,
+    body: {
+      type: "SPIN" | "OVER" | "BURST" | "XTREME";
+      playerId: string;
+      refereeName?: string;
+      beyIndex?: number;
+    }
+  ) =>
+    request<{
+      match: Match;
+      finish: FinishRecord;
+      autoCompleted: boolean;
+      nextMatch: Match | null;
+    }>(`/api/matches/${id}/score`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  undoMatch: (id: string, body?: { refereeName?: string }) =>
+    request<{ match: Match; removed: FinishRecord }>(
+      `/api/matches/${id}/undo`,
+      {
+        method: "POST",
+        body: JSON.stringify(body ?? {}),
+      }
+    ),
+
+  completeMatch: (id: string, body?: { refereeName?: string }) =>
+    request<{ match: Match; nextMatch: Match | null }>(
+      `/api/matches/${id}/complete`,
+      {
+        method: "POST",
+        body: JSON.stringify(body ?? {}),
+      }
+    ),
+
+  getMatchActions: (id: string) =>
+    request<ActionLog[]>(`/api/matches/${id}/actions`),
 };
